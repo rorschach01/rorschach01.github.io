@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon2-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon1-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Pisces","version":"8.0.0-rc.3","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="1.LSM存在的问题LSM-Tree 能将离散的随机写请求都转换成批量的顺序写请求，以此提高写性能。  读放大（Read Amplification）。LSM-Tree 的读操作需要从新到旧（从上到下）一层一层查找，直到找到想要的数据。这个过程可能需要不止一次 I&#x2F;O。特别是 range query 的情况，影响很明显。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="LSM-tree：KV分离">
+<meta property="og:url" content="http://yoursite.com/2020/09/25/LSM-tree%EF%BC%9AKV%E5%88%86%E7%A6%BB/index.html">
+<meta property="og:site_name" content="Live for nothing">
+<meta property="og:description" content="1.LSM存在的问题LSM-Tree 能将离散的随机写请求都转换成批量的顺序写请求，以此提高写性能。  读放大（Read Amplification）。LSM-Tree 的读操作需要从新到旧（从上到下）一层一层查找，直到找到想要的数据。这个过程可能需要不止一次 I&#x2F;O。特别是 range query 的情况，影响很明显。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/images/%E6%88%AA%E5%B1%8F2020-10-18%20%E4%B8%8B%E5%8D%885.11.42.png">
+<meta property="og:image" content="http://yoursite.com/images/%E6%88%AA%E5%B1%8F2020-10-18%20%E4%B8%8B%E5%8D%886.38.33.png">
+<meta property="og:image" content="http://yoursite.com/images/%E6%88%AA%E5%B1%8F2020-10-21%20%E4%B8%8B%E5%8D%884.32.48.png">
+<meta property="og:image" content="http://yoursite.com/images/%E6%88%AA%E5%B1%8F2020-10-26%20%E4%B8%8B%E5%8D%883.41.45.png">
+<meta property="article:published_time" content="2020-09-25T04:36:52.000Z">
+<meta property="article:modified_time" content="2020-11-09T01:48:01.609Z">
+<meta property="article:author" content="rorschach01">
+<meta property="article:tag" content="Database">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/images/%E6%88%AA%E5%B1%8F2020-10-18%20%E4%B8%8B%E5%8D%885.11.42.png">
+
+<link rel="canonical" href="http://yoursite.com/2020/09/25/LSM-tree%EF%BC%9AKV%E5%88%86%E7%A6%BB/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>LSM-tree：KV分离 | Live for nothing</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line toggle-line-first"></span>
+        <span class="toggle-line toggle-line-middle"></span>
+        <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Live for nothing</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">靠幻觉保持行动</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">3</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类<span class="badge">2</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">5</span></a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/09/25/LSM-tree%EF%BC%9AKV%E5%88%86%E7%A6%BB/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/233.jpg">
+      <meta itemprop="name" content="rorschach01">
+      <meta itemprop="description" content="存在主义者">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Live for nothing">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          LSM-tree：KV分离
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-09-25 12:36:52" itemprop="dateCreated datePublished" datetime="2020-09-25T12:36:52+08:00">2020-09-25</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%AD%A6%E7%BB%99%E6%88%91%E5%AD%A6/" itemprop="url" rel="index"><span itemprop="name">学给我学</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h4 id="1-LSM存在的问题"><a href="#1-LSM存在的问题" class="headerlink" title="1.LSM存在的问题"></a>1.LSM存在的问题</h4><p>LSM-Tree 能将离散的随机写请求都转换成批量的顺序写请求，以此提高写性能。</p>
+<ul>
+<li>读放大（Read Amplification）。LSM-Tree 的读操作需要从新到旧（从上到下）一层一层查找，直到找到想要的数据。这个过程可能需要不止一次 I/O。特别是 range query 的情况，影响很明显。</li>
+</ul>
+<a id="more"></a>
+
+<ul>
+<li><p>空间放大（Space Amplification）。因为所有的写入都是顺序写（append-only）的，不是 in-place update ，所以过期数据不会马上被清理掉。RocksDB 和 LevelDB 通过后台的 compaction 来减少读放大（减少 SST 文件数量）和空间放大（清理过期数据），但也因此带来了写放大（Write Amplification）的问题。</p>
+</li>
+<li><p>写放大。实际写入磁盘的数据大小和程序要求写入数据大小之比。正常情况下，HDD/SSD 观察到的写入数据多于上层程序写入的数据。原因是在compact的过程中，我需要额外的进行写操作以便能够将数据从一个level写入到另一个level，所以这个过程就增加了写入量。同时SSD必须不支持覆盖写，必须先擦出在写入，写放大的问题也造成了SSD的寿命问题。<br>wisckey中，作者进行了一个实验，使用16b的键，1kb值分别在1G与100G的系统中做操作。结果如下图：</p>
+<img src="/images/截屏2020-10-18 下午5.11.42.png" alt="截屏2020-10-18 下午5.11.42" style="zoom:67%;" />
+
+<p>图中可以看出：</p>
+<p>写放大的原因是：当写入的数据越多，系统在从低level到高level的过程中的compact过程中需要写更多次。</p>
+<p>读放大的原因：当database越小，索引块和布隆过滤器可以很好的放入到cach中，当变大的时候，那么就需要不断的将这些块放入到cach中，消耗了替换的过程。</p>
+</li>
+</ul>
+<h4 id="2-wisckey"><a href="#2-wisckey" class="headerlink" title="2.wisckey"></a>2.wisckey</h4><p>​    wisckey进行论文四个方面的优化：</p>
+<ol>
+<li>WiscKey将键与值分开，只将键保存在lsm树中，而将值保存在单独的日志文件；</li>
+<li>为了处理未排序的值(这需要在范围查询期间进行随机访问)，WiscKey使用SSD设备的并行随机读取特性；</li>
+<li>WiscKey利用独特的崩溃一致性和GC技术来有效地管理值日志；</li>
+<li>WiscKey通过在不牺牲一致性的情况下删除LSM-tree日志来优化性能，从而减少了小型写操作带来的系统调用开销。</li>
+</ol>
+<h5 id="2-1-wisckey基本思想"><a href="#2-1-wisckey基本思想" class="headerlink" title="2.1 wisckey基本思想"></a>2.1 wisckey基本思想</h5><p>​    wisckey只在LSM中存储key，而value存储在其他位置。又因为现在的键值对特征就是键很小，值很大，所以这种设计思路有助于减小写放大。同时由于wisckey由于采用了键值存储位分离，所以它在lookup的过程中会查询更少的level，且更容易放入cach中，所以会更为迅速。最后，wisckey会先插入value于vlog中，然后再将key插入LSM中。删除的时候只删除LSM中即可，剩下的内容在垃圾回收的时候删除。</p>
+<h5 id="2-2-Parallel-Range-Query"><a href="#2-2-Parallel-Range-Query" class="headerlink" title="2.2 Parallel Range Query"></a>2.2 Parallel Range Query</h5><p>​    在LevelDB中，由于键和值被存储在一起并进行排序，所以范围查询可以顺序地从SSTable文件中读取键-值对。但是，由于键和值分别存储在WiscKey中，所以范围查询需要随机读取，因此效率不高。但是，虽然SSD上单个线程的随机读性能不能与顺序读性能相匹配。然而，具有相当大请求大小的并行随机读取可以充分利用设备的内部并行性，获得类似于顺序读取的性能。</p>
+<p>​    如果用户进行一个范围查询，那么系统会首先把LSM中的key全部找到，并依次将value的地址添加到一个队列当中。然后后台就会根据队列的值进行多线程的查询操作。（使用线程池，为什么不使用异步IO？）</p>
+<h5 id="2-3-GC"><a href="#2-3-GC" class="headerlink" title="2.3 GC"></a>2.3 GC</h5><p>Wisckey提出了一种轻量级并且在线删除的GC策略，Wisckey在vlog中存储value的同时也会存储相应的key。</p>
+<img src="/images/截屏2020-10-18 下午6.38.33.png" alt="截屏2020-10-18 下午6.38.33" style="zoom:67%;" />
+
+<p>​    上图中head是新加入值的位置，而tail是垃圾释放空间的起始位置。两个指针中间的存储的包含有效值。同时Wisckey讲述了垃圾回收机制。首先从tail处读取一个key-value对，然后同过查找LSM来检验这些value哪些是合法的（没有被覆盖或者删除）。然后会把合法的值加入到log的head处。最后释放空间并更新tail的位置。</p>
+<p>​    为了避免在垃圾回收的时候出现碰撞从而使数据丢失，所以这里需要：在将value加入到vlog后，回收机制会调用<code>fsync()</code>函数，（后面的这些步骤就是这个函数的具体操作）然后用同步方式将这些新的value地址与当前tail添加到LSM中（<code>&lt;‘‘tail’’, tail-vLog-offset&gt;</code>），最后释放vlog中的空间。</p>
+<h5 id="2-4-Crash-Consistency"><a href="#2-4-Crash-Consistency" class="headerlink" title="2.4 Crash Consistency"></a>2.4 Crash Consistency</h5><p>​    Wisckey给出了一个结论是（怎么得出这个结论的部分没看懂），如果vlog中一个value值在碰撞中丢失，那么它后面的值同样也会丢失。所以在碰撞发生后，Wisckey需要验证是否value的地址在vlog的有效区域内，然后验证是否key与value对应。如果验证失败，那么可以肯定数据在碰撞中存在丢失，然后从LSM中删除这个key并对用户进行通知。</p>
+<h5 id="2-5-去除了WAL部分"><a href="#2-5-去除了WAL部分" class="headerlink" title="2.5 去除了WAL部分"></a>2.5 去除了WAL部分</h5><p>​    Wisckey在LSM中定期记录了vLog的head地址<code>&lt;‘‘head’’, head-vLog-offset&gt;</code>。每次恢复都从记录处开始，并按照插入顺序进行恢复（以vlog为参照恢复LSM）。基于以上的原因Wisckey放弃LSM的log。</p>
+<h4 id="3-HashKV"><a href="#3-HashKV" class="headerlink" title="3. HashKV"></a>3. HashKV</h4><h5 id="3-1-HashKV的基本思想"><a href="#3-1-HashKV的基本思想" class="headerlink" title="3.1 HashKV的基本思想"></a>3.1 HashKV的基本思想</h5><p>主要分为一下几点：</p>
+<ol>
+<li>基于哈希的数据分组:  HashKV通过散列关联的键将值映射到值存储中的固定大小的分区。这种设计实现了：(a)分区隔离，即与同一键关联的所有版本的值更新都必须写入同一分区；(b)确定性分组，在确定性分组中，应该存储一个值的分区是由哈希确定的；(c) 动态保留空间分配：HashKV允许分区动态增长，超出其大小限制，方法是在值存储中分配部分预留空间。</li>
+<li>冷热分离：由于分组的确定性，一个分区可能会存在热KV和冷KV对的混合值，在这种情况下，GC操作不必要地对冷KV对的值进行处理。HashKV采用标记方法，将冷KV对的值重新定位到不同的存储区域，并将热KV对和冷KV对分开，这样就可以只对热KV对应用GC。</li>
+<li>选择性KV分离：HashKV将KV对按其值大小进行区分，使较小的KV对可以直接存储在lsm-tree中，无需KV分离。考虑到在LSM-tree中存储小尺寸KV对的压缩开销是有限的，这样节省了对小尺寸KV对的访问与value存储的开销。</li>
+</ol>
+<h5 id="3-2-Storage-Management"><a href="#3-2-Storage-Management" class="headerlink" title="3.2 Storage Management"></a>3.2 Storage Management</h5><p>​    图为HashKV的体系结构。它将值存储的逻辑地址空间划分为固定大小的单元，称为main segments，同时它还预留了固定部分的预留空间，称为log segments。对于每个KV对的插入或更新，HashKV将其键散列到一个main segment中。如果main segment未满，HashKV将值附加到主段末尾，以<strong>逻辑结构</strong>的方式存储该值;另一方面，如果main segment满了，HashKV会动态地分配一个log segment，以日志结构的方式存储额外的值。</p>
+<img src="/images/截屏2020-10-21 下午4.32.48.png" alt="截屏2020-10-21 下午4.32.48" style="zoom:67%;" /> 
+
+
+
+<p>​    此外，为了跟踪segment存储状态，HashKV使用一个全局segment table来存储每个段组的当前结束位置，以便后续的插入或更新。</p>
+<h5 id="3-3-GC"><a href="#3-3-GC" class="headerlink" title="3.3  GC"></a>3.3  GC</h5><p>​    HashKV根据全局segment table跟踪每个segment的的写操作量，同时采用贪婪的方法，选择写操作最多的段组。GC的基本原理是，大量的写操作的segment通常保存有许多更新的热KV对。因此，选择这个segment进行GC可以回收最多的空闲空间。</p>
+<p>​    HashKV会以日志结构的方式将所有有效的KV对写回main segment，或者在需要时附加的log segment。为了检查所选segment中KV对的有效性，HashKV按顺序扫描段组中的KV对，而不查询lsm树(注意，它还检查写缓存，以查看segment中最新的KV对)。由于KV对以对数结构的方式写入段组，因此KV对必须按照其更新的顺序顺序放置。对于有多个更新版本的KV对，<strong>最接近segment末尾的版本必须是最新的版本</strong>，并且与有效KV对相对应，其他版本无效。因此，<strong>每个GC操作的运行时间仅取决于需要扫描的段组的大小。</strong></p>
+<h5 id="3-4-冷热分离"><a href="#3-4-冷热分离" class="headerlink" title="3.4 冷热分离"></a>3.4 冷热分离</h5><p>​    在每次 GC 某一个 segment 的时候，都会判断某个 key 是冷的或是热的。文中采用判断冷热的策略是：如果上次 GC 之后有两次 update 就算是热 key。否则就是冷 key。热 key 写到 segment 里面，冷 key 存到另外一个统一的 vLog 里面（与 WiscKey 中 vLog 相同）。</p>
+<p>​    但是冷 key 会在 segment 里面留下一个元数据标记表示这个 key 在冷数据 vLog 里面有 。这是为了下一次 GC 的时候可以不用查 vLog 就能马上看到同一个 key 有几次 update，用于决定 key 的冷热。</p>
+<img src="/images/截屏2020-10-26 下午3.41.45.png" alt="截屏2020-10-26 下午3.41.45" style="zoom: 67%;" />
+
+<p>​    每次 GC 之后，需要保留的 key 被重写了。新的地址会在 GC 过程中 update 到 LSMs 里面。注意这里不管是 hash partition 还是冷热分离，都不会引起很多读放大。因为从 key 中通过一个固定的 hash function 就可以知道这个数据应该在哪一个 segment。而且从地址本身的某几位中可以看出数据是在 hot segment 还是在 cold vLog 中，所以我们可以在 LSMs 中拿到地址后，一次 I/O 就可以找到 value。</p>
+<h5 id="3-5-范围查询"><a href="#3-5-范围查询" class="headerlink" title="3.5 范围查询"></a>3.5 范围查询</h5><p>​    使用LSM-tree进行索引的一个关键原因是它有效地支持范围扫描。因为LSM-tree根据键存储和排序KV对，所以它可以通过顺序读取返回一系列键的值。但是，KV分离现在将值存储在单独的存储空间中，因此需要额外读取值。在HashKV中，值分散在不同的segment中，因此范围扫描将触发许多随机读取，从而降低性能。HashKV目前利用预读机制将值预取到页缓存中，从而加速了范围扫描。对于每个扫描请求，HashKV遍历LSM-tree中已排序的键值范围，并向每个值发出预读请求(通过posix fadvise)，然后读取所有值并返回排序过的KV对。</p>
+<p>论文地址：</p>
+<p><a href="https://dl.acm.org/doi/abs/10.1145/3033273" target="_blank" rel="noopener">WiscKey: Separating Keys from Values in SSD-Conscious Storage</a></p>
+<p><a href="https://www.usenix.org/conference/atc18/technical-sessions" target="_blank" rel="noopener">HashKV: Enabling Efficient Updates in {KV} Storage via Hashing </a></p>
+
+    </div>
+
+    
+    
+    
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>rorschach01
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="http://yoursite.com/2020/09/25/LSM-tree%EF%BC%9AKV%E5%88%86%E7%A6%BB/" title="LSM-tree：KV分离">http://yoursite.com/2020/09/25/LSM-tree：KV分离/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Database/" rel="tag"># Database</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/06/18/%E4%BA%8C%E5%8D%81%E4%BA%8C(%E4%B8%80)/" rel="prev" title="二十二(1)">
+      <i class="fa fa-chevron-left"></i> 二十二(1)
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/10/20/LSM-tree%EF%BC%9ATRIAD/" rel="next" title="LSM-tree：TRAID">
+      LSM-tree：TRAID <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-LSM存在的问题"><span class="nav-text">1.LSM存在的问题</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-wisckey"><span class="nav-text">2.wisckey</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#2-1-wisckey基本思想"><span class="nav-text">2.1 wisckey基本思想</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-2-Parallel-Range-Query"><span class="nav-text">2.2 Parallel Range Query</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-3-GC"><span class="nav-text">2.3 GC</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-4-Crash-Consistency"><span class="nav-text">2.4 Crash Consistency</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-5-去除了WAL部分"><span class="nav-text">2.5 去除了WAL部分</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#3-HashKV"><span class="nav-text">3. HashKV</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#3-1-HashKV的基本思想"><span class="nav-text">3.1 HashKV的基本思想</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-2-Storage-Management"><span class="nav-text">3.2 Storage Management</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-3-GC"><span class="nav-text">3.3  GC</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-4-冷热分离"><span class="nav-text">3.4 冷热分离</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-5-范围查询"><span class="nav-text">3.5 范围查询</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="rorschach01"
+      src="/images/233.jpg">
+  <p class="site-author-name" itemprop="name">rorschach01</p>
+  <div class="site-description" itemprop="description">存在主义者</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">5</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/rorschach01" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;rorschach01" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:yangmh0218@gmail.com" title="E-Mail → mailto:yangmh0218@gmail.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="http://www.zhihu.com/people/iiiblue" title="Zhihu → http:&#x2F;&#x2F;www.zhihu.com&#x2F;people&#x2F;iiiblue" rel="noopener" target="_blank"><i class="fa fa-file fa-fw"></i>Zhihu</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="http://blog.csdn.net/qq_38593079" title="CSDN → http:&#x2F;&#x2F;blog.csdn.net&#x2F;qq_38593079" rel="noopener" target="_blank"><i class="fab fa-contao fa-fw"></i>CSDN</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">rorschach01</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script size="300" alpha="0.6" zIndex="-1" src="/lib/canvas-ribbon/canvas-ribbon.js"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

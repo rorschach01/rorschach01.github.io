@@ -20,20 +20,24 @@
     var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Pisces","version":"8.0.0-rc.3","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="我常常会想，人们一直不去做某件事的目的可能是用来保留一种“如果做的话我也可以的“可能性。 在我看来，人生的为难之处总是在于，人们需要自己决定自己的道路。">
+  <meta name="description" content="TRIAD: Creating Synergies Between Memory, Disk and Log in Log Structured Key-Value StoresTRIAD（USENIX ATC’17），一个新的 LSM key-value 存储引擎，开发这个引擎的公司叫 Nutanix，用 RocksDB 做核心企业系统 metadata 的管理。TRIAD 的设计以该公司的需求">
 <meta property="og:type" content="article">
-<meta property="og:title" content="二十二(1)">
-<meta property="og:url" content="http://yoursite.com/2020/06/18/%E4%BA%8C%E5%8D%81%E4%BA%8C(%E4%B8%80)/index.html">
+<meta property="og:title" content="LSM-tree：TRAID">
+<meta property="og:url" content="http://yoursite.com/2020/10/20/LSM-tree%EF%BC%9ATRIAD/index.html">
 <meta property="og:site_name" content="Live for nothing">
-<meta property="og:description" content="我常常会想，人们一直不去做某件事的目的可能是用来保留一种“如果做的话我也可以的“可能性。 在我看来，人生的为难之处总是在于，人们需要自己决定自己的道路。">
+<meta property="og:description" content="TRIAD: Creating Synergies Between Memory, Disk and Log in Log Structured Key-Value StoresTRIAD（USENIX ATC’17），一个新的 LSM key-value 存储引擎，开发这个引擎的公司叫 Nutanix，用 RocksDB 做核心企业系统 metadata 的管理。TRIAD 的设计以该公司的需求">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2020-06-17T21:54:37.000Z">
-<meta property="article:modified_time" content="2020-06-17T23:07:16.000Z">
+<meta property="og:image" content="http://yoursite.com/images/%E6%88%AA%E5%B1%8F2020-10-16%20%E4%B8%8B%E5%8D%884.17.20.png">
+<meta property="og:image" content="http://yoursite.com/images/%E6%88%AA%E5%B1%8F2020-10-16%20%E4%B8%8B%E5%8D%885.45.11.png">
+<meta property="og:image" content="http://yoursite.com/images/%E6%88%AA%E5%B1%8F2020-10-17%20%E4%B8%8B%E5%8D%884.43.48.png">
+<meta property="article:published_time" content="2020-10-20T02:38:23.000Z">
+<meta property="article:modified_time" content="2020-11-09T02:04:54.304Z">
 <meta property="article:author" content="rorschach01">
-<meta property="article:tag" content="日志">
+<meta property="article:tag" content="Database">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/images/%E6%88%AA%E5%B1%8F2020-10-16%20%E4%B8%8B%E5%8D%884.17.20.png">
 
-<link rel="canonical" href="http://yoursite.com/2020/06/18/%E4%BA%8C%E5%8D%81%E4%BA%8C(%E4%B8%80)/">
+<link rel="canonical" href="http://yoursite.com/2020/10/20/LSM-tree%EF%BC%9ATRIAD/">
 
 
 <script id="page-configurations">
@@ -46,7 +50,7 @@
   };
 </script>
 
-  <title>二十二(1) | Live for nothing</title>
+  <title>LSM-tree：TRAID | Live for nothing</title>
   
 
 
@@ -166,7 +170,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/06/18/%E4%BA%8C%E5%8D%81%E4%BA%8C(%E4%B8%80)/">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/10/20/LSM-tree%EF%BC%9ATRIAD/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/233.jpg">
@@ -179,7 +183,7 @@
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
-          二十二(1)
+          LSM-tree：TRAID
         </h1>
 
         <div class="post-meta">
@@ -189,7 +193,7 @@
               </span>
               <span class="post-meta-item-text">发表于</span>
 
-              <time title="创建时间：2020-06-18 05:54:37" itemprop="dateCreated datePublished" datetime="2020-06-18T05:54:37+08:00">2020-06-18</time>
+              <time title="创建时间：2020-10-20 10:38:23" itemprop="dateCreated datePublished" datetime="2020-10-20T10:38:23+08:00">2020-10-20</time>
             </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -197,7 +201,7 @@
               </span>
               <span class="post-meta-item-text">分类于</span>
                 <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E4%B9%B1%E4%B8%83%E5%85%AB%E7%B3%9F/" itemprop="url" rel="index"><span itemprop="name">乱七八糟</span></a>
+                  <a href="/categories/%E5%AD%A6%E7%BB%99%E6%88%91%E5%AD%A6/" itemprop="url" rel="index"><span itemprop="name">学给我学</span></a>
                 </span>
             </span>
 
@@ -212,16 +216,43 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>我常常会想，人们一直不去做某件事的目的可能是用来保留一种“如果做的话我也可以的“可能性。</p>
-<p>在我看来，人生的为难之处总是在于，人们需要自己决定自己的道路。</p>
+        <h4 id="TRIAD-Creating-Synergies-Between-Memory-Disk-and-Log-in-Log-Structured-Key-Value-Stores"><a href="#TRIAD-Creating-Synergies-Between-Memory-Disk-and-Log-in-Log-Structured-Key-Value-Stores" class="headerlink" title="TRIAD: Creating Synergies Between Memory, Disk and Log in Log Structured Key-Value Stores"></a>TRIAD: Creating Synergies Between Memory, Disk and Log in Log Structured Key-Value Stores</h4><p>TRIAD（USENIX ATC’17），一个新的 LSM key-value 存储引擎，开发这个引擎的公司叫 <a href="https://link.zhihu.com/?target=https%3A//www.wikiwand.com/en/Nutanix">Nutanix</a>，用 RocksDB 做核心企业系统 metadata 的管理。TRIAD 的设计以该公司的需求为基础，出身于工业界的产品会有较强的可参考性。</p>
 <a id="more"></a>
 
-<p>的确，按照别人的期待生活会比较轻松，把自己的人生托付给了别人，能够按部就班的走在看得清的轨道上。</p>
-<p>萨特说，人们饱受自由之苦。</p>
-<p>自由就是选择，选择带来的是无法预测的未来和结果。对我而言，这些未知是最让我恐惧的事情。我曾经由衷的希望自己生长于信仰宗教的环境，能够把人生托付给上帝。</p>
-<p>”如果一切都可以用神的旨意来接受的话，那么我就可以安于现状了。”</p>
-<p>而现实里的我，努力起来也斤斤计较，害怕自己有一天会囿于所谓的阶级和宿命。</p>
-<p>希望自己能过的通透一些，能够不去关注“无法改变的”，而是去关注“可以改变的”，即使得了60分也不必悲观，在诚实的接受60分的自己的基础上努力思考“如何才能接近100分”。</p>
+<h4 id="1-Motivation"><a href="#1-Motivation" class="headerlink" title="1.Motivation"></a>1.Motivation</h4><p>​    先介绍一下概念。</p>
+<p>​    commit log：提交日志是驻留在磁盘上的文件。它的目的是临时记录对Memtable进行的更新，如果应用程序要求在发生故障时不丢失数据的话。在Memtable上执行的所有更新都附加到提交日志中。通常，提交日志的大小保持较小，以便在需要重放操作以从故障中恢复时提供快速恢复。</p>
+<p>​    文章指出了rocksdb触发频繁而密集的I/O操作的原因，主要的三个方面：</p>
+<ol>
+<li>Data skew unawareness：针对冷热数据写差别较大的场景（skewed workload），热数据的频繁更新会导致 memtable 很小而 commit log 却很大，为了避免日志过多而导致数据库重启恢复时间（recovery time）增加， memtable 必须频繁地 flush 从而让 commit log 可以清掉，而这对性能是一种损失。</li>
+<li>Premature and iterative compaction：现有的LSM KV系统在compaction过程中存在双重限制。一些LSM KV存储在L0中只保留一个文件，以避免在读取时在L0中查找多个sstable。因此，每次刷新内存组件时，都会触发从L 0到底层的压缩，导致LSM树的频繁compaction。其他LSM方案将多个文件保存在l0中。这种方法导致了现有LSM KV存储的第二个限制。问题在于，当L 0中存在多个sstable时，如果L 0中的两个文件共享一个公共key，那么这个key将在下层的LSM tree中被压缩两次。数据倾斜加剧了这个问题，因为它增加了多个L 0文件包含同一组hot key的可能性。显然，系统上的负载越高，该事件发生的概率就越高。</li>
+<li>Duplicate writes：当Memtable刷新到L 0时，相应的提交日志将被丢弃，因为刷新已经确保了数据的持久性。但是，L 0新文件中的每个KV对都对应于写入内存组件中的key的上一个版本，因此被附加到提交日志中。因此，在L 0中将内存组件刷新到磁盘时，系统实际上是在重放在填充提交日志时已经执行的I/O。</li>
+</ol>
+<h4 id="2-TRIAD"><a href="#2-TRIAD" class="headerlink" title="2.TRIAD"></a>2.TRIAD</h4><p>文章提出了三种优化方案</p>
+<ol>
+<li>TRIAD-MEM：解决了内存组件级别的数据倾斜不感知问题。</li>
+</ol>
+<img src="/images/截屏2020-10-16 下午4.17.20.png" alt="截屏2020-10-16 下午4.17.20.png" style="zoom:70%;" />
+
+<p>当MemTable刷新到L 0时，TRIAD-MEM将经常更新的热数据与很少更新的冷数据分开。热项保存在新的memtable中，只有冷项写入磁盘。这样，热项只在内存中更新，而不会在磁盘上触发大量压缩。这避免了为确保LSM磁盘结构中的key范围不重叠而触发的大量压缩操作。</p>
+<p>在 Memtable 里面，每个 key 会有额外的 4 字节空间来统计 key 的频率，然后在 flush 的时候统计出最 hot 的 k 个 key。现在的算法比较简单，只要大于平均频率的 key 就是 hot key，这个算法其实在多数场景下面都是有效的。</p>
+<p>此外，当然为了保证数据安全，会额外将flush后的热数据写入到一个 log 里面。实际上，在非常倾斜的工作负载的情况下，flush可能引发不是因为Memtable full的，但是因为commit log full。为了避免拥有大量小文件，文章指出将所有entry保存在内存中，丢弃旧的commit log，并创建一个新的commit log，并使用Memtable的最新值。</p>
+<ol start="2">
+<li>TRIAD-DISK：通过在磁盘组件级别明智地选择延迟compaction和批处理来解决过早和迭代compaction的问题。</li>
+</ol>
+<p>对于 Level 0 和 Level 1 compaction，TRIAD 采用了 <a href="https://en.wikipedia.org/wiki/HyperLogLog" target="_blank" rel="noopener">Hyperloglog</a> 来计算两层之间的重叠情况，如果如果有足够的重叠了，就触发 compaction，否则则是延迟触发。计算重叠的公式为 <code>UniqueKeys(file-1, file-2, ... file-n) / sum( Keys( file-i ) )</code>，其中 <code>Keys( file-i )</code> 表明是第 I 个 SST 的总的 key 的个数，而 <code>UniqueKeys</code> 则是估算的所有 SST 的唯一 key 的个数。</p>
+<img src="/images/截屏2020-10-16 下午5.45.11.png" alt="截屏2020-10-16 下午5.45.11" style="zoom:67%;" />
+
+<p>RocksDB采用HLL算法检测哪些文件的键重叠最多，需要压缩，来在压缩期间将丢弃最大数量的重复键的目的。其中L i和L i+1处文件中键重叠的估计是基于文件的键的范围和大小。</p>
+<ol start="3">
+<li>TRIAD-LOG：处理重复写问题，在提交日志级别绕过刷新期间创建的新文件。</li>
+</ol>
+<p>核心思想是把 commit log 当做 SST 来用。因为 commit log 有一份持久化数据，L0 SST 再写一份的话是一种浪费。把日志文件直接 rename 成 SST 岂不美哉？</p>
+<p>将commit log视为L 0可稳定日志的优点是，可以避免由于从内存刷新引起的I/O。但是，与sstable不同的是，commit log没有排序。经典SSTables的排序结构使得在压缩期间合并SSTables和从文件中检索信息变得很容易。为了避免扫描整个MemTable-SSTable以在L 0文件中找到一个条目，文章指出将每个KV对的最近更新的提交日志文件的偏移量保存在MemTable中。一旦触发了刷新操作，只有与提交日志中的偏移量相关联的小索引被写入磁盘。然后将索引与其对应的提交日志文件分组，从而创建新的L 0 MemTable-SSTable格式。</p>
+<img src="/images/截屏2020-10-17 下午4.43.48.png" alt="ß" style="zoom:67%;" />
+
+<p>基本上这个思想和 wisckey 很接近，主要思想是在在内存中维护 key -&gt; latest log offset 的映射，这样对 point read 没有影响，<strong>但对 range read 影响很大。</strong></p>
+<p>论文地址：</p>
+<p><a href="https://www.usenix.org/conference/atc17/technical-sessions/presentation/balmau" target="_blank" rel="noopener">TRIAD: Creating Synergies Between Memory, Disk and Log in Log Structured Key-Value Stores</a></p>
 
     </div>
 
@@ -237,7 +268,7 @@
   </li>
   <li class="post-copyright-link">
     <strong>本文链接：</strong>
-    <a href="http://yoursite.com/2020/06/18/%E4%BA%8C%E5%8D%81%E4%BA%8C(%E4%B8%80)/" title="二十二(1)">http://yoursite.com/2020/06/18/二十二(一)/</a>
+    <a href="http://yoursite.com/2020/10/20/LSM-tree%EF%BC%9ATRIAD/" title="LSM-tree：TRAID">http://yoursite.com/2020/10/20/LSM-tree：TRIAD/</a>
   </li>
   <li class="post-copyright-license">
     <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fab fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
@@ -248,7 +279,7 @@
 
       <footer class="post-footer">
           <div class="post-tags">
-              <a href="/tags/%E6%97%A5%E5%BF%97/" rel="tag"># 日志</a>
+              <a href="/tags/Database/" rel="tag"># Database</a>
           </div>
 
         
@@ -257,13 +288,10 @@
         
     <div class="post-nav">
       <div class="post-nav-item">
-    <a href="/2020/04/25/HashMap%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90%EF%BC%9Ahash%E5%8E%9F%E7%90%86%E4%B8%8E%E6%89%A9%E5%AE%B9%E6%9C%BA%E5%88%B6/" rel="prev" title="HashMap源码分析：hash原理与扩容机制">
-      <i class="fa fa-chevron-left"></i> HashMap源码分析：hash原理与扩容机制
+    <a href="/2020/09/25/LSM-tree%EF%BC%9AKV%E5%88%86%E7%A6%BB/" rel="prev" title="LSM-tree：KV分离">
+      <i class="fa fa-chevron-left"></i> LSM-tree：KV分离
     </a></div>
-      <div class="post-nav-item">
-    <a href="/2020/09/25/LSM-tree%EF%BC%9AKV%E5%88%86%E7%A6%BB/" rel="next" title="LSM-tree：KV分离">
-      LSM-tree：KV分离 <i class="fa fa-chevron-right"></i>
-    </a></div>
+      <div class="post-nav-item"></div>
     </div>
       </footer>
     
@@ -322,6 +350,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-4"><a class="nav-link" href="#TRIAD-Creating-Synergies-Between-Memory-Disk-and-Log-in-Log-Structured-Key-Value-Stores"><span class="nav-text">TRIAD: Creating Synergies Between Memory, Disk and Log in Log Structured Key-Value Stores</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#1-Motivation"><span class="nav-text">1.Motivation</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-TRIAD"><span class="nav-text">2.TRIAD</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
